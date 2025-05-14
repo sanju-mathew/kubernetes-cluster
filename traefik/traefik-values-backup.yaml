@@ -74,7 +74,7 @@ ingressRoute:
     enabled: true
     entryPoints:
     - websecure
-    matchRule: Host(`traefik.syjapp.com`) && (PathPrefix(`/dashboard`) || PathPrefix(`/api`))
+    matchRule: Host(`traefik.yourdomain.com`) && (PathPrefix(`/dashboard`) || PathPrefix(`/api`))
     middlewares:
     - name: dashboard-auth
       namespace: traefik
