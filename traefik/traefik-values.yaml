@@ -69,7 +69,7 @@ gatewayClass:
 ingressRoute:
   dashboard:
     enabled: true
-    matchRule: Host(`traefik.syjapp.com`) && (PathPrefix(`/dashboard`) || PathPrefix(`/api`))
+    matchRule: Host(`traefik.yourdomain.com`) && (PathPrefix(`/dashboard`) || PathPrefix(`/api`))
     entryPoints:
       - websecure
     services:
