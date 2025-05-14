@@ -1,0 +1,336 @@
+# Default values for Traefik
+# This file configures Traefik using Helm. It includes settings for deployment,
+# entrypoints, TLS, persistence, and integration with Kubernetes and cert-manager.
+
+image:
+  registry: docker.io
+  repository: traefik
+  tag:
+  pullPolicy: IfNotPresent
+
+commonLabels: {}
+
+deployment:
+  enabled: true
+  kind: Deployment
+  replicas: 3  # Three Traefik pods for HA
+  terminationGracePeriodSeconds: 60
+  minReadySeconds: 0
+  annotations: {}
+  labels: {}
+  podAnnotations: {}
+  podLabels: {}
+  additionalContainers: []
+  additionalVolumes: []
+  initContainers: []  # Not needed as i am using cert-manager for ACME
+  shareProcessNamespace: false
+  imagePullSecrets: []
+  lifecycle: {}
+  runtimeClassName: ""
+
+podDisruptionBudget:
+  enabled: false
+
+ingressClass:
+  enabled: true
+  isDefaultClass: true
+  name: ""
+
+core:
+  defaultRuleSyntax: ""
+
+experimental:
+  abortOnPluginFailure: false
+  fastProxy:
+    enabled: false
+    debug: false
+  kubernetesGateway:
+    enabled: false
+  plugins: {}
+
+gateway:
+  enabled: true
+  name: ""
+  namespace: ""
+  annotations: {}
+  infrastructure: {}
+  listeners:
+    web:
+      port: 8000
+      hostname: ""
+      protocol: HTTP
+      namespacePolicy:
+
+gatewayClass:
+  enabled: true
+  name: ""
+  labels: {}
+
+ingressRoute:
+  dashboard:
+    enabled: true
+    matchRule: Host(`traefik.syjapp.com`) && (PathPrefix(`/dashboard`) || PathPrefix(`/api`))
+    entryPoints:
+      - websecure
+    services:
+      - name: api@internal
+        kind: TraefikService
+    middlewares:
+      - name: dashboard-auth
+        namespace: traefik
+    tls:
+      secretName: syjapp-tls
+      
+  healthcheck:
+    enabled: false
+    annotations: {}
+    labels: {}
+    matchRule: PathPrefix(`/ping`)
+    services:
+      - name: ping@internal
+        kind: TraefikService
+    entryPoints: ["traefik"]
+    middlewares: []
+    tls: {}
+
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 0
+    maxSurge: 1
+
+readinessProbe:
+  failureThreshold: 1
+  initialDelaySeconds: 2
+  periodSeconds: 10
+  successThreshold: 1
+  timeoutSeconds: 2
+
+livenessProbe:
+  failureThreshold: 3
+  initialDelaySeconds: 2
+  periodSeconds: 10
+  successThreshold: 1
+  timeoutSeconds: 2
+
+startupProbe: {}
+
+providers:
+  kubernetesCRD:
+    enabled: true
+    allowCrossNamespace: false
+    allowExternalNameServices: false
+    allowEmptyServices: true
+    ingressClass: ""
+    namespaces: []
+    nativeLBByDefault: false
+  kubernetesIngress:
+    enabled: true
+    allowExternalNameServices: false
+    allowEmptyServices: true
+    ingressClass:
+    namespaces: []
+    publishedService:
+      enabled: true
+      pathOverride: ""
+    nativeLBByDefault: false
+  kubernetesGateway:
+    enabled: false
+    experimentalChannel: false
+    namespaces: []
+    labelselector: ""
+    nativeLBByDefault: false
+    statusAddress:
+      ip: ""
+      hostname: ""
+      service:
+        enabled: true
+        name: ""
+        namespace: ""
+  file:
+    enabled: false
+    watch: true
+    content: ""
+
+additionalArguments:
+  - "--api.dashboard=true"
+  - "--api.insecure=false"
+  - "--entrypoints.web.address=:8080"
+  - "--entrypoints.websecure.address=:8443"
+  - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+  - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+  - "--entrypoints.web.http.redirections.entrypoint.permanent=true"
+
+volumes: []
+additionalVolumeMounts: []
+
+logs:
+  general:
+    level: "INFO"
+    filePath: ""
+    noColor: false
+  access:
+    enabled: false
+    addInternals: false
+    filters:
+      statuscodes: ""
+      retryattempts: false
+      minduration: ""
+    fields:
+      general:
+        defaultmode: keep
+        names: {}
+      headers:
+        defaultmode: drop
+        names: {}
+
+metrics:
+  addInternals: false
+  prometheus:
+    entryPoint: metrics
+    manualRouting: false
+    service:
+      enabled: false
+      labels: {}
+      annotations: {}
+    serviceMonitor:
+      enabled: false
+    prometheusRule:
+      enabled: false
+  otlp:
+    enabled: false
+    http:
+      enabled: false
+    grpc:
+      enabled: false
+
+tracing:
+  addInternals: false
+  otlp:
+    enabled: false
+    http:
+      enabled: false
+    grpc:
+      enabled: false
+
+globalArguments:
+  - "--global.checknewversion"
+  - "--global.sendanonymoususage"
+
+env: []
+envFrom: []
+
+ports:
+  traefik:
+    port: 9000
+    expose:
+      default: false
+    exposedPort: 9000
+    protocol: TCP
+  web:
+    port: 8080
+    expose:
+      default: true
+    exposedPort: 80
+    protocol: TCP
+  websecure:
+    port: 8443
+    expose:
+      default: true
+    exposedPort: 443
+    protocol: TCP
+    tls:
+      enabled: true
+      options: ""
+      certResolver: ""
+      domains: []
+
+# Define default certificate via TLS Store
+# Ensures dashboard and other services fallback correctly to a valid cert
+# Used when `tls: {}` in IngressRoutes
+
+# The certificate was issued by cert-manager
+# and stored in the secret `syjapp-tls` in the `traefik` namespace
+
+# So we define it as the default cert for the websecure entrypoint
+
+# You don't need the `initContainer` because cert-manager takes care of cert creation and renewal
+
+# Example Certificate YAML:
+# apiVersion: cert-manager.io/v1
+# kind: Certificate
+# metadata:
+#   name: syjapp-com
+#   namespace: traefik
+# spec:
+#   secretName: syjapp-tls
+#   dnsNames:
+#     - "syjapp.com"
+#     - "*.syjapp.com"
+#   issuerRef:
+#     name: cloudflare
+#     kind: Issuer
+#   duration: 2160h
+#   renewBefore: 168h
+
+# TLS Store sets default cert
+
+persistence:
+  enabled: true
+  name: data
+  accessMode: ReadWriteMany
+  size: 128Mi
+  path: /data
+  annotations: {}
+
+certificatesResolvers: {}
+
+hostNetwork: false
+
+rbac:
+  enabled: true
+  namespaced: false
+  aggregateTo: []
+  secretResourceNames: []
+
+podSecurityPolicy:
+  enabled: false
+
+serviceAccount:
+  name: ""
+
+serviceAccountAnnotations: {}
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+affinity: {}
+nodeSelector: {}
+tolerations: []
+topologySpreadConstraints: []
+priorityClassName: ""
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: [ALL]
+  readOnlyRootFilesystem: true
+
+podSecurityContext:
+  fsGroup: 65532
+  fsGroupChangePolicy: "OnRootMismatch"
+
+extraObjects: []
+namespaceOverride: ""
+instanceLabelOverride: ""
+versionOverride: ""
+
+tlsStore:
+  default:
+    defaultCertificate:
+      secretName: syjapp-tls

@@ -1,0 +1,19 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: cloudflare
+  namespace: traefik
+spec:
+  acme:
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    email: sanjummathew@gmail.com
+    privateKeySecretRef:
+      name: cloudflare-key
+    solvers:
+      - dns01:
+          cloudflare:
+            apiTokenSecretRef:
+              name: cloudflare
+              key: api-token
+          delayBeforeCheck: 30s
