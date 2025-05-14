@@ -8,11 +8,11 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host(`portainer.syjapp.com`)
+    - match: Host(`portainer.yourdomain.com`)
       kind: Rule
       services:
         - name: portainer
           port: 9000
           scheme: http
   tls:
-    secretName: syjapp-tls
+    secretName: yoursecret-tls
