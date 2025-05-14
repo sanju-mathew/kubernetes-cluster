@@ -8,7 +8,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host(`longhorn.syjapp.com`)
+    - match: Host(`longhorn.yourdomain.com`)
       kind: Rule
       services:
         - name: longhorn-frontend
@@ -16,4 +16,4 @@ spec:
       middlewares:
         - name: longhorn-auth   # Remove if not using auth
   tls:
-    secretName: syjapp-tls
+    secretName: yoursecret-tls
